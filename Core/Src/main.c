@@ -32,7 +32,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define ADC_TIMEOUT_MS 100
+#define DEVICE_ID 0x000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,7 +49,13 @@ CAN_HandleTypeDef hcan1;
 SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
-
+enum {
+	APPS1_CHANNEL=ADC_CHANNEL_7,
+	APPS2_CHANNEL=ADC_CHANNEL_15,
+	BSE1_CHANNEL=ADC_CHANNEL_14,
+	BSE2_CHANNEL=ADC_CHANNEL_7,
+};
+const uint32_t sensor_channels[] = {APPS1_CHANNEL, APPS2_CHANNEL, BSE1_CHANNEL, BSE2_CHANNEL};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,7 +70,17 @@ void ADC_channel_select(int channel);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void ADC_channel_select(int channel)
+{
+  ADC_ChannelConfTypeDef sConfig = {0};
+  sConfig.Channel = channel;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -99,8 +116,16 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  uint8_t hvil_out, hvil_logic, hvil_in, debug_btn1, debug_btn2, brakes_on, bad_range;
-  uint8_t pedal_vals[4];
+  uint8_t 				hvil_out, hvil_logic, hvil_in, debug_btn1, debug_btn2, brakes_on, bad_range;
+  uint8_t 				pedal_vals[5];
+  CAN_TxHeaderTypeDef   TxHeader;
+  uint8_t 				TxData[8];
+  uint32_t              TxMailbox;
+
+  TxHeader.IDE = CAN_ID_STD;
+  TxHeader.StdId = DEVICE_ID;
+  TxHeader.RTR = CAN_RTR_DATA;
+  TxHeader.DLC = 5;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -114,6 +139,29 @@ int main(void)
 	debug_btn2 = HAL_GPIO_ReadPin(GPIOA, DEBUG_BTN_2_Pin);
 	brakes_on = !HAL_GPIO_ReadPin(GPIOE, N_BRAKES_ON_Pin);
 	bad_range = HAL_GPIO_ReadPin(GPIOE, RANGE_ANOMALY_Pin);
+
+	if (bad_range)
+	{
+	  Error_Handler();
+	}
+
+	/* Read pedal sensor values from ADC */
+	for (int i = 0; i < 4; i++)
+	{
+	  HAL_ADC_Start(&hadc1);
+	  ADC_channel_select(sensor_channels[i]);
+	  HAL_ADC_PollForConversion(&hadc1, ADC_TIMEOUT_MS);
+	  pedal_vals[i] = HAL_ADC_GetValue(&hadc1);
+	  HAL_ADC_Stop(&hadc1);
+	}
+
+	pedal_vals[4] = breaks_on;
+	HAL_CAN_Start(&hcan1);
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, peda_vals, &TxMailbox) != HAL_OK)
+	{
+	   Error_Handler ();
+	}
+	HAL_CAN_Stop(&hcan1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -208,13 +256,13 @@ static void MX_ADC1_Init(void)
 
   /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
   */
-  sConfig.Channel = ADC_CHANNEL_7;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+//  sConfig.Channel = ADC_CHANNEL_7;
+//  sConfig.Rank = 1;
+//  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+//  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
