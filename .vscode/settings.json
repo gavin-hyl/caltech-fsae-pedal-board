@@ -1,7 +1,0 @@
-{
-    "files.associations": {
-        "main.h": "c",
-        "usb_device.h": "c"
-    },
-    "stm32-for-vscode.openOCDPath": false
-}
