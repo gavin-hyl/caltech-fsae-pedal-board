@@ -119,7 +119,6 @@ int main(void)
   uint8_t 				hvil_out, hvil_logic, hvil_in, debug_btn1, debug_btn2, brakes_on, bad_range;
   uint8_t 				pedal_vals[5];
   CAN_TxHeaderTypeDef   TxHeader;
-  uint8_t 				TxData[8];
   uint32_t              TxMailbox;
 
   TxHeader.IDE = CAN_ID_STD;
@@ -155,9 +154,9 @@ int main(void)
 	  HAL_ADC_Stop(&hadc1);
 	}
 
-	pedal_vals[4] = breaks_on;
+	pedal_vals[4] = brakes_on;
 	HAL_CAN_Start(&hcan1);
-	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, peda_vals, &TxMailbox) != HAL_OK)
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, pedal_vals, &TxMailbox) != HAL_OK)
 	{
 	   Error_Handler ();
 	}
